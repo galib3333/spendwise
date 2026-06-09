@@ -569,7 +569,7 @@ function renderDashboard() {
             <h3>Spending Breakdown</h3>
             <span class="text-sm text-muted">This month</span>
           </div>
-          <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+          <div class="chart-split" style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
             <div class="chart-container" style="flex:1;min-width:180px;max-width:240px">
               <canvas id="dashPie"></canvas>
             </div>
@@ -669,8 +669,8 @@ function renderTransactions() {
         </div>
       </div>
       <div class="panel">
-        <div style="overflow-x:auto">
-          <table class="table" id="txTable">
+        <div class="tx-table-wrapper">
+          <table class="tx-table table" id="txTable">
             <thead>
               <tr>
                 <th>Date</th>
@@ -786,7 +786,7 @@ function renderWeekly() {
         </div>
         <div class="panel">
           <div class="panel-header"><h3>By Category</h3></div>
-          <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+          <div class="chart-split" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
             <div style="flex:1;min-width:140px;max-width:200px">
               <canvas id="weeklyPie"></canvas>
             </div>
@@ -873,7 +873,7 @@ function renderMonthly() {
         </div>
         <div class="panel">
           <div class="panel-header"><h3>Category Breakdown</h3></div>
-          <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+          <div class="chart-split" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
             <div style="flex:1;min-width:140px;max-width:200px">
               <canvas id="monthlyPie"></canvas>
             </div>
@@ -1002,7 +1002,7 @@ function renderYearly() {
       <div class="grid-2">
         <div class="panel">
           <div class="panel-header"><h3>Expense by Category</h3></div>
-          <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+          <div class="chart-split" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
             <div style="flex:1;min-width:140px;max-width:220px">
               <canvas id="yearlyPie"></canvas>
             </div>
@@ -1069,7 +1069,7 @@ function renderBudgets() {
           Set Budget
         </button>
       </div>
-      <div class="cards-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="cards-grid">
         <div class="card"><div class="card-label">💰 Total Budget</div><div class="card-value accent">${fmt(totalBudget)}</div></div>
         <div class="card"><div class="card-label">💸 Total Spent</div><div class="card-value red">${fmt(totalSpent)}</div></div>
         <div class="card"><div class="card-label">📊 Remaining</div><div class="card-value ${totalBudget-totalSpent>=0?'green':'red'}">${fmt(totalBudget-totalSpent)}</div></div>
@@ -1117,7 +1117,7 @@ function renderRecurring() {
           Add Recurring
         </button>
       </div>
-      <div class="cards-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="cards-grid">
         <div class="card"><div class="card-label">🔄 Active</div><div class="card-value accent">${recurringList.filter(r=>r.active).length}</div></div>
         <div class="card"><div class="card-label">💸 Monthly Cost</div><div class="card-value red">${fmt(recurringList.filter(r=>r.active).reduce((s,r)=>{const m={weekly:4.33,biweekly:2.16,monthly:1,quarterly:0.33,yearly:0.083};return s+r.amount*(m[r.frequency]||1);},0))}</div></div>
         <div class="card"><div class="card-label">📅 Yearly Cost</div><div class="card-value yellow">${fmt(recurringList.filter(r=>r.active).reduce((s,r)=>{const y={weekly:52,biweekly:26,monthly:12,quarterly:4,yearly:1};return s+r.amount*(y[r.frequency]||1);},0))}</div></div>
@@ -1127,7 +1127,7 @@ function renderRecurring() {
           const cat = getCat(r.category);
           const freqLabels = {weekly:'Weekly','biweekly':'Bi-Weekly',monthly:'Monthly',quarterly:'Quarterly',yearly:'Yearly'};
           return `
-            <div class="flex flex-center flex-between" style="padding:14px 0;border-bottom:1px solid var(--border)">
+            <div class="recurring-row flex flex-center flex-between" style="padding:14px 0;border-bottom:1px solid var(--border)">
               <div class="flex flex-center gap-12">
                 <div class="transaction-icon" style="background:${cat.color}22;color:${cat.color}">${cat.icon}</div>
                 <div>
@@ -1172,7 +1172,7 @@ function renderSavings() {
           Add Goal
         </button>
       </div>
-      <div class="cards-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="cards-grid">
         <div class="card savings-card">
           <div class="card-label">💎 Total Saved</div>
           <div class="card-value">${fmt(totalSaved)}</div>
@@ -1180,7 +1180,7 @@ function renderSavings() {
         <div class="card"><div class="card-label">🎯 Total Target</div><div class="card-value accent">${fmt(totalTarget)}</div></div>
         <div class="card"><div class="card-label">📊 Overall Progress</div><div class="card-value ${totalTarget?(totalSaved/totalTarget*100>=100?'green':'yellow'):'accent'}">${totalTarget?(totalSaved/totalTarget*100).toFixed(1):0}%</div></div>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">
+      <div class="savings-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">
         ${savingsGoals.length ? savingsGoals.map(g => {
           const pct = g.target ? Math.min((g.current/g.target)*100, 100) : 0;
           const remaining = Math.max(g.target - g.current, 0);
@@ -1210,7 +1210,7 @@ function renderSavings() {
                 </div>
                 <div class="text-sm text-muted mt-8" style="text-align:center">${pct.toFixed(1)}% complete</div>
               </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
+              <div class="savings-subgrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
                 <div style="padding:8px;background:var(--bg3);border-radius:6px;text-align:center">
                   <div class="text-sm text-muted">Remaining</div>
                   <div style="font-weight:600;font-size:0.85rem">${fmt(remaining)}</div>
@@ -1272,7 +1272,7 @@ function renderExport() {
       </div>
       <div class="panel mt-16">
         <div class="panel-header"><h3>Data Summary</h3></div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px">
+        <div class="data-summary-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px">
           <div style="padding:12px;background:var(--bg3);border-radius:var(--radius-sm);text-align:center">
             <div class="card-label" style="justify-content:center">Transactions</div>
             <div style="font-size:1.5rem;font-weight:700">${transactions.length}</div>
