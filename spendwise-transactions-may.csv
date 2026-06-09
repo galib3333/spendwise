@@ -1,0 +1,4 @@
+Date,Type,Category,Amount,Payment,Description,Tags,Recurring
+2026-06-08,income,"Salary",13997,card,"For the whole months expenses of course.","monthly",false
+2026-06-08,expense,"Other Expense",2500,card,"Family","",false
+2026-06-08,expense,"Food & Dining",140,cash,"Bread and Orange Jelly.","",false
