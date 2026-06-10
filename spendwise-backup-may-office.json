@@ -1,0 +1,111 @@
+{
+  "transactions": [
+    {
+      "id": "mq6wkl4uwcjac1",
+      "type": "income",
+      "amount": 13997,
+      "date": "2026-06-08",
+      "category": "salary",
+      "payment": "card",
+      "description": "",
+      "tags": [
+        "monthly"
+      ],
+      "recurring": false,
+      "frequency": "monthly"
+    },
+    {
+      "id": "mq6wlag2cgg2gq",
+      "type": "expense",
+      "amount": 2500,
+      "date": "2026-06-08",
+      "category": "other-exp",
+      "payment": "card",
+      "description": "Family",
+      "tags": [],
+      "recurring": false,
+      "frequency": "monthly"
+    },
+    {
+      "id": "mq6wltcwdj80yk",
+      "type": "expense",
+      "amount": 140,
+      "date": "2026-06-08",
+      "category": "food",
+      "payment": "card",
+      "description": "Bread and Orange Jelly.",
+      "tags": [],
+      "recurring": false,
+      "frequency": "monthly"
+    },
+    {
+      "id": "mq6wn3vyxb1m8y",
+      "type": "expense",
+      "amount": 140,
+      "date": "2026-06-09",
+      "category": "food",
+      "payment": "cash",
+      "description": "Lunch & Snacks",
+      "tags": [],
+      "recurring": false,
+      "frequency": "monthly"
+    },
+    {
+      "id": "mq6wrq07q2xhfb",
+      "type": "expense",
+      "amount": 42,
+      "date": "2026-06-09",
+      "category": "transport",
+      "payment": "cash",
+      "description": "Office",
+      "tags": [],
+      "recurring": false,
+      "frequency": "monthly"
+    },
+    {
+      "id": "mq80mg4eoa5dyy",
+      "type": "expense",
+      "amount": 110,
+      "date": "2026-06-08",
+      "category": "food",
+      "payment": "cash",
+      "description": "Fried-rice",
+      "tags": [],
+      "recurring": false,
+      "frequency": "monthly"
+    },
+    {
+      "id": "mq80poguj44pdw",
+      "type": "expense",
+      "amount": 24,
+      "date": "2026-06-10",
+      "category": "transport",
+      "payment": "cash",
+      "description": "Office",
+      "tags": [],
+      "recurring": true,
+      "frequency": "monthly"
+    }
+  ],
+  "budgets": [],
+  "savingsGoals": [
+    {
+      "id": "mq6wusm87borrq",
+      "name": "GPU",
+      "target": 30000,
+      "current": 0,
+      "date": "2027-03-01",
+      "createdAt": "2026-06-09"
+    },
+    {
+      "id": "mq6x18qgyt0ra1",
+      "name": "Marriage",
+      "target": 300000,
+      "current": 0,
+      "date": "2027-06-09",
+      "createdAt": "2026-06-09"
+    }
+  ],
+  "recurringList": [],
+  "exportDate": "2026-06-10"
+}

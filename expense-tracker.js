@@ -495,7 +495,7 @@ function renderPage() {
 }
 
 // ===== DASHBOARD =====
-function renderDashboard() {
+function calcHealthScore() {
   const t = today();
   const now = new Date();
   const monthStart = t.slice(0,7) + '-01';
@@ -503,29 +503,264 @@ function renderDashboard() {
   const lastMonth = new Date(now.getFullYear(), now.getMonth()-1, 1);
   const lmStart = lastMonth.toISOString().slice(0,7) + '-01';
   const lmEnd = new Date(lastMonth.getFullYear(), lastMonth.getMonth()+1, 0).toISOString().slice(0,10);
-  
+
   const thisMonthExp = getExpenses('month', monthStart, monthEnd);
   const lastMonthExp = getExpenses('month', lmStart, lmEnd);
   const thisMonthInc = getIncome('month', monthStart, monthEnd);
-  const totalExpThisMonth = thisMonthExp.reduce((s,t)=>s+t.amount, 0);
-  const totalIncThisMonth = thisMonthInc.reduce((s,t)=>s+t.amount, 0);
-  const totalExpLastMonth = lastMonthExp.reduce((s,t)=>s+t.amount, 0);
-  const totalIncLastMonth = lastMonthInc.reduce((s,t)=>s+t.amount, 0);
-  const savings = totalIncThisMonth - totalExpThisMonth;
-  
-  const change = totalExpLastMonth ? ((totalExpThisMonth - totalExpLastMonth)/totalExpLastMonth*100) : 0;
-  const incChange = totalIncLastMonth ? ((totalIncThisMonth - totalIncLastMonth)/totalIncLastMonth*100) : 0;
-  
-  const yearStart = now.getFullYear() + '-01-01';
-  const yearExp = getExpenses('year', yearStart, t);
-  const totalYearExp = yearExp.reduce((s,t)=>s+t.amount, 0);
-  
-  const allExpenses = transactions.filter(t=>t.type==='expense');
-  const avgDaily = thisMonthExp.length ? totalExpThisMonth / new Date(now.getFullYear(), now.getMonth()+1, 0).getDate() : 0;
-  
-  const recentTx = [...transactions].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8);
+  const lastMonthInc = getIncome('month', lmStart, lmEnd);
+  const totalExp = thisMonthExp.reduce((s,x)=>s+x.amount, 0);
+  const totalInc = thisMonthInc.reduce((s,x)=>s+x.amount, 0);
+  const totalExpLast = lastMonthExp.reduce((s,x)=>s+x.amount, 0);
+  const totalIncLast = lastMonthInc.reduce((s,x)=>s+x.amount, 0);
+
+  let score = 50;
+
+  if(totalInc > 0) {
+    const savingsRate = Math.max(0, (totalInc - totalExp) / totalInc);
+    score += savingsRate * 30;
+  }
+
+  const budgetScore = budgets.reduce((acc, b) => {
+    const spent = thisMonthExp.filter(e => e.category === b.category).reduce((s,x)=>s+x.amount, 0);
+    const ratio = spent / b.limit;
+    if(ratio <= 0.8) return acc + 1;
+    if(ratio <= 1.0) return acc + 0.5;
+    return acc;
+  }, 0);
+  if(budgets.length > 0) score += (budgetScore / budgets.length) * 10;
+
+  if(totalExpLast > 0) {
+    const expChange = (totalExp - totalExpLast) / totalExpLast;
+    if(expChange < -0.1) score += 5;
+    else if(expChange > 0.2) score -= 5;
+  }
+
+  if(transactions.length === 0) score = 0;
+
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+function getScoreGrade(score) {
+  if(score >= 85) return { grade:'A', color:'var(--green)', msg:'Excellent financial health. Keep it up!' };
+  if(score >= 70) return { grade:'B', color:'var(--green)', msg:'Good standing. Small tweaks could make it better.' };
+  if(score >= 50) return { grade:'C', color:'var(--yellow)', msg:'Fair. Some areas need attention this month.' };
+  if(score >= 30) return { grade:'D', color:'var(--orange)', msg:'Needs improvement. Review your spending habits.' };
+  return { grade:'F', color:'var(--red)', msg:'Critical. Time to take control of your finances.' };
+}
+
+function getDashboardInsights() {
+  const t = today();
+  const now = new Date();
+  const monthStart = t.slice(0,7) + '-01';
+  const monthEnd = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().slice(0,10);
+  const lastMonth = new Date(now.getFullYear(), now.getMonth()-1, 1);
+  const lmStart = lastMonth.toISOString().slice(0,7) + '-01';
+  const lmEnd = new Date(lastMonth.getFullYear(), lastMonth.getMonth()+1, 0).toISOString().slice(0,10);
+
+  const thisMonthExp = getExpenses('month', monthStart, monthEnd);
+  const lastMonthExp = getExpenses('month', lmStart, lmEnd);
+  const totalExp = thisMonthExp.reduce((s,x)=>s+x.amount, 0);
+  const totalExpLast = lastMonthExp.reduce((s,x)=>s+x.amount, 0);
+  const insights = [];
+
+  if(totalExpLast > 0) {
+    const change = ((totalExp - totalExpLast) / totalExpLast * 100);
+    if(Math.abs(change) > 5) {
+      const dir = change > 0 ? 'up' : 'down';
+      insights.push({
+        text: `Overall spending is <strong>${dir === 'up' ? 'up' : 'down'} ${Math.abs(change).toFixed(0)}%</strong> vs last month`,
+        color: dir === 'up' ? 'var(--red)' : 'var(--green)',
+        change: `${dir === 'up' ? '+' : '-'}${Math.abs(change).toFixed(0)}%`,
+        changeColor: dir === 'up' ? 'var(--red)' : 'var(--green)'
+      });
+    }
+  }
+
+  const thisCats = sumByCategory(thisMonthExp);
+  const lastCats = sumByCategory(lastMonthExp);
+  const lastCatMap = Object.fromEntries(lastCats.map(c => [c.category, c.amount]));
+  for(const cat of thisCats.slice(0, 3)) {
+    const lastAmt = lastCatMap[cat.category] || 0;
+    if(lastAmt > 0) {
+      const catChange = ((cat.amount - lastAmt) / lastAmt * 100);
+      if(Math.abs(catChange) > 15) {
+        const info = getCat(cat.category);
+        insights.push({
+          text: `<strong>${info.name}</strong> spending ${catChange > 0 ? 'increased' : 'decreased'} ${Math.abs(catChange).toFixed(0)}% — ${fmt(lastAmt)} → ${fmt(cat.amount)}`,
+          color: catChange > 0 ? 'var(--red)' : 'var(--green)',
+          change: `${catChange > 0 ? '+' : '-'}${Math.abs(catChange).toFixed(0)}%`,
+          changeColor: catChange > 0 ? 'var(--red)' : 'var(--green)'
+        });
+      }
+    }
+  }
+
+  if(thisMonthExp.length > 0) {
+    const topExp = thisMonthExp.reduce((max, x) => x.amount > max.amount ? x : max, thisMonthExp[0]);
+    const topCat = getCat(topExp.category);
+    insights.push({
+      text: `Largest expense: <strong>${topExp.description || topCat.name}</strong> at ${fmt(topExp.amount)}`,
+      color: 'var(--accent)',
+      change: '',
+      changeColor: ''
+    });
+  }
+
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+  const dayOfMonth = now.getDate();
+  const daysLeft = daysInMonth - dayOfMonth;
+  if(totalExpLast > 0 && daysLeft > 0) {
+    const dailyAvg = totalExp / dayOfMonth;
+    const projected = dailyAvg * daysInMonth;
+    if(projected > totalExpLast * 1.15) {
+      insights.push({
+        text: `At current pace, you'll spend <strong>${fmt(projected)}</strong> by month end (${((projected/totalExpLast - 1)*100).toFixed(0)}% over last month)`,
+        color: 'var(--orange)',
+        change: 'PROJECTED',
+        changeColor: 'var(--orange)'
+      });
+    }
+  }
+
+  return insights;
+}
+
+function getDashboardPrompts() {
+  const t = today();
+  const now = new Date();
+  const monthStart = t.slice(0,7) + '-01';
+  const monthEnd = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().slice(0,10);
+  const prompts = [];
+
+  const upcomingRecurring = recurringList.filter(r => r.active && r.nextDate <= t);
+  const futureRecurring = recurringList.filter(r => r.active && r.nextDate > t && r.nextDate <= new Date(now.getTime() + 7*86400000).toISOString().slice(0,10));
+  if(upcomingRecurring.length > 0) {
+    const total = upcomingRecurring.reduce((s,r)=>s+r.amount, 0);
+    prompts.push({
+      icon: '🔄',
+      bg: 'var(--blue)',
+      title: 'Due Now',
+      text: `${upcomingRecurring.length} recurring charge${upcomingRecurring.length>1?'s':''} — ${fmt(total)}`
+    });
+  } else if(futureRecurring.length > 0) {
+    const total = futureRecurring.reduce((s,r)=>s+r.amount, 0);
+    prompts.push({
+      icon: '📅',
+      bg: 'var(--yellow)',
+      title: 'Coming Up',
+      text: `${futureRecurring.length} charge${futureRecurring.length>1?'s':''} in 7 days — ${fmt(total)}`
+    });
+  }
+
+  const thisMonthExp = getExpenses('month', monthStart, monthEnd);
+  const totalExp = thisMonthExp.reduce((s,x)=>s+x.amount, 0);
+  budgets.forEach(b => {
+    const spent = thisMonthExp.filter(e => e.category === b.category).reduce((s,x)=>s+x.amount, 0);
+    const ratio = spent / b.limit;
+    if(ratio >= 0.85 && ratio < 1.0) {
+      const info = getCat(b.category);
+      prompts.push({
+        icon: info.icon,
+        bg: 'var(--yellow)',
+        title: 'Budget Warning',
+        text: `${info.name}: ${Math.round(ratio*100)}% used — ${fmt(b.limit - spent)} left`
+      });
+    } else if(ratio >= 1.0) {
+      const info = getCat(b.category);
+      prompts.push({
+        icon: info.icon,
+        bg: 'var(--red)',
+        title: 'Over Budget',
+        text: `${info.name}: ${fmt(spent)} of ${fmt(b.limit)} — ${fmt(spent - b.limit)} over`
+      });
+    }
+  });
+
+  savingsGoals.forEach(g => {
+    const pct = g.target > 0 ? (g.current / g.target) * 100 : 0;
+    if(pct >= 80 && pct < 100) {
+      prompts.push({
+        icon: '🎯',
+        bg: 'var(--green)',
+        title: 'Goal Almost There',
+        text: `"${g.name}" is ${Math.round(pct)}% — ${fmt(g.target - g.current)} to go`
+      });
+    } else if(pct >= 100) {
+      prompts.push({
+        icon: '🎉',
+        bg: 'var(--green)',
+        title: 'Goal Reached',
+        text: `You hit your "${g.name}" target!`
+      });
+    }
+  });
+
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+  const dayOfMonth = now.getDate();
+  if(dayOfMonth > 5 && totalExp === 0) {
+    prompts.push({
+      icon: '💸',
+      bg: 'var(--accent)',
+      title: 'No Activity',
+      text: `No expenses logged this month yet — ${daysInMonth - dayOfMonth} days left`
+    });
+  }
+
+  return prompts;
+}
+
+function drawHealthRing(canvasId, score) {
+  const canvas = document.getElementById(canvasId);
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const size = 100;
+  canvas.width = size * dpr;
+  canvas.height = size * dpr;
+  canvas.style.width = size + 'px';
+  canvas.style.height = size + 'px';
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, size, size);
+
+  const cx = size / 2, cy = size / 2, r = 40, lw = 7;
+  const startAngle = -Math.PI / 2;
+  const pct = score / 100;
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg4').trim();
+  ctx.lineWidth = lw;
+  ctx.stroke();
+
+  if(score > 0) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, startAngle, startAngle + pct * Math.PI * 2);
+    const grade = getScoreGrade(score);
+    ctx.strokeStyle = grade.color;
+    ctx.lineWidth = lw;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  }
+}
+
+function renderDashboard() {
+  const t = today();
+  const now = new Date();
+  const monthStart = t.slice(0,7) + '-01';
+  const monthEnd = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().slice(0,10);
+
+  const thisMonthExp = getExpenses('month', monthStart, monthEnd);
+  const thisMonthInc = getIncome('month', monthStart, monthEnd);
+  const totalExp = thisMonthExp.reduce((s,x)=>s+x.amount, 0);
+  const totalInc = thisMonthInc.reduce((s,x)=>s+x.amount, 0);
+  const savings = totalInc - totalExp;
+
+  const score = calcHealthScore();
+  const { grade, color: scoreColor, msg } = getScoreGrade(score);
+  const insights = getDashboardInsights();
+  const prompts = getDashboardPrompts();
   const catData = sumByCategory(thisMonthExp);
-  
+
   const main = document.getElementById('mainContent');
   main.innerHTML = `
     <div class="fade-in">
@@ -534,35 +769,67 @@ function renderDashboard() {
           <h2>Dashboard</h2>
           <p class="text-sm text-muted">${now.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</p>
         </div>
-        <div class="header-actions">
-          <button class="btn btn-primary" onclick="openAddTransaction()">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Add Transaction
-          </button>
+      </div>
+
+      <div class="health-score">
+        <div class="health-ring">
+          <canvas id="healthRing"></canvas>
+          <div class="score-text">
+            <span class="score-num" style="color:${scoreColor}">${score}</span>
+            <span class="score-label">Score</span>
+          </div>
+        </div>
+        <div class="health-info">
+          <div class="health-grade">Grade: <span style="color:${scoreColor}">${grade}</span></div>
+          <div class="health-message">${msg}</div>
         </div>
       </div>
-      <div class="cards-grid">
+
+      ${prompts.length ? `
+        <div class="prompts-grid">
+          ${prompts.map(p => `
+            <div class="prompt-card">
+              <div class="prompt-icon" style="background:${p.bg}22;color:${p.bg}">${p.icon}</div>
+              <div class="prompt-text">
+                <div class="prompt-title">${p.title}</div>
+                <div class="prompt-value">${p.text}</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+
+      ${insights.length ? `
+        <div class="insights-panel">
+          <div class="insights-header">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            Insights
+          </div>
+          ${insights.map(i => `
+            <div class="insight-row">
+              <div class="insight-dot" style="background:${i.color}"></div>
+              <div class="insight-text">${i.text}</div>
+              ${i.change ? `<div class="insight-change" style="color:${i.changeColor}">${i.change}</div>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+
+      <div class="cards-grid" style="grid-template-columns:repeat(3,1fr)">
         <div class="card">
           <div class="card-label">💰 Monthly Income</div>
-          <div class="card-value green">${fmt(totalIncThisMonth)}</div>
-          <div class="card-change ${incChange>=0?'up':'down'}">${incChange>=0?'↑':'↓'} ${Math.abs(incChange).toFixed(1)}% vs last month</div>
+          <div class="card-value green">${fmt(totalInc)}</div>
         </div>
         <div class="card">
           <div class="card-label">💸 Monthly Expenses</div>
-          <div class="card-value red">${fmt(totalExpThisMonth)}</div>
-          <div class="card-change ${change>=0?'up':'down'}">${change>=0?'↑':'↓'} ${Math.abs(change).toFixed(1)}% vs last month</div>
+          <div class="card-value red">${fmt(totalExp)}</div>
         </div>
         <div class="card">
           <div class="card-label">📊 Net Savings</div>
           <div class="card-value ${savings>=0?'green':'red'}">${fmt(savings)}</div>
-          <div class="card-change ${savings>=0?'down':'up'}">${savings>=0?'On track':'Over budget'}</div>
-        </div>
-        <div class="card">
-          <div class="card-label">📅 Avg Daily Spend</div>
-          <div class="card-value accent">${fmt(avgDaily)}</div>
-          <div class="card-change text-muted">This month</div>
         </div>
       </div>
+
       <div class="grid-3">
         <div class="panel">
           <div class="panel-header">
@@ -588,48 +855,25 @@ function renderDashboard() {
         </div>
         <div class="panel">
           <div class="panel-header">
-            <h3>Recent Transactions</h3>
-            <button class="btn btn-ghost btn-sm" onclick="navigate('transactions')">View All</button>
+            <h3>Monthly Trend</h3>
           </div>
-          ${recentTx.length ? recentTx.map(t => {
-            const cat = getCat(t.category);
-            return `
-              <div class="flex flex-center flex-between mb-8" style="padding:8px 0;border-bottom:1px solid var(--border)">
-                <div class="flex flex-center gap-8">
-                  <div class="transaction-icon" style="background:${cat.color}22;color:${cat.color}">${cat.icon}</div>
-                  <div>
-                    <div class="text-sm" style="font-weight:600">${t.description || cat.name}</div>
-                    <div class="text-sm text-muted">${t.date}</div>
-                  </div>
-                </div>
-                <div class="text-right">
-                  <div style="font-weight:600;color:${t.type==='expense'?'var(--red)':'var(--green)'}">${t.type==='expense'?'-':'+'} ${fmt(t.amount)}</div>
-                  <span class="badge badge-${t.type==='expense'?'danger':'success'}">${t.type}</span>
-                </div>
-              </div>
-            `;
-          }).join('') : '<div class="empty-state"><p>No transactions yet</p></div>'}
-        </div>
-      </div>
-      <div class="panel">
-        <div class="panel-header">
-          <h3>Monthly Trend</h3>
-        </div>
-        <div class="chart-container">
-          <canvas id="dashBar"></canvas>
+          <div class="chart-container">
+            <canvas id="dashBar"></canvas>
+          </div>
         </div>
       </div>
     </div>
   `;
   setTimeout(() => {
-    drawPieChart('dashPie', catData, totalExpThisMonth);
+    drawHealthRing('healthRing', score);
+    drawPieChart('dashPie', catData, totalExp);
     const last6 = [];
     const labels = [];
     for(let i=5;i>=0;i--) {
       const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
       const ms = d.toISOString().slice(0,7) + '-01';
       const me = new Date(d.getFullYear(), d.getMonth()+1, 0).toISOString().slice(0,10);
-      last6.push(getExpenses('m', ms, me).reduce((s,t)=>s+t.amount, 0));
+      last6.push(getExpenses('m', ms, me).reduce((s,x)=>s+x.amount, 0));
       labels.push(d.toLocaleDateString('en-US',{month:'short'}));
     }
     drawBarChart('dashBar', last6, labels, '#6c5ce7');
